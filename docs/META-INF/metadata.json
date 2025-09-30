@@ -1,0 +1,61 @@
+{
+  "groupId" : "org.wildfly.extras.grpc",
+  "artifactId" : "wildfly-grpc-feature-pack",
+  "version" : "0.1.14-SNAPSHOT",
+  "name" : "WildFly gRPC :: Feature Pack",
+  "description" : "Parent for modules with code. Contains dependencies and plugin management",
+  "licenses" : [ "Apache License, Version 2.0" ],
+  "url" : "https://github.com/wildfly-extras/wildfly-grpc-feature-pack",
+  "scm-url" : "https://github.com/wildfly-extras/wildfly-grpc-feature-pack",
+  "layers" : [ {
+    "name" : "grpc",
+    "dependencies" : [ {
+      "name" : "cdi",
+      "optional" : false
+    } ],
+    "managementModel" : {
+      "socket-binding-group" : {
+        "standard-sockets" : {
+          "_address" : "/socket-binding-group=*",
+          "socket-binding" : {
+            "grpc" : {
+              "_address" : "/socket-binding-group=*/socket-binding=*",
+              "attributes" : [ {
+                "name" : "port",
+                "value" : "${jboss.grpc.port:9555}",
+                "_address" : "/socket-binding-group=*/socket-binding=*@@@port"
+              } ]
+            }
+          }
+        }
+      },
+      "subsystem" : {
+        "grpc" : {
+          "_address" : "/subsystem=grpc",
+          "attributes" : [ {
+            "name" : "socket-binding",
+            "value" : "grpc",
+            "_address" : "/subsystem=grpc@@@socket-binding"
+          } ]
+        }
+      }
+    },
+    "properties" : [ {
+      "name" : "org.wildfly.rule.add-on",
+      "value" : "rpc,grpc"
+    }, {
+      "name" : "org.wildfly.rule.add-on-depends-on",
+      "value" : "none"
+    }, {
+      "name" : "org.wildfly.rule.add-on-description",
+      "value" : "Support for gRPC."
+    } ],
+    "configurations" : [ {
+      "_address" : "/socket-binding-group=*/socket-binding=*@@@port",
+      "attribute" : "port",
+      "system-properties" : [ "jboss.grpc.port" ],
+      "environment-variables" : [ ]
+    } ],
+    "packages" : [ ]
+  } ]
+}
