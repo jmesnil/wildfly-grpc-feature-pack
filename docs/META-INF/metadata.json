@@ -2,8 +2,8 @@
   "groupId" : "org.wildfly.extras.grpc",
   "artifactId" : "wildfly-grpc-feature-pack",
   "version" : "0.1.14-SNAPSHOT",
-  "name" : "WildFly gRPC :: Feature Pack",
-  "description" : "Parent for modules with code. Contains dependencies and plugin management",
+  "name" : "gRPC Feature Pack for WildFly",
+  "description" : "This feature pack provides gRPC capababilities for the WildFly Application Server",
   "licenses" : [ "Apache License, Version 2.0" ],
   "url" : "https://github.com/wildfly-extras/wildfly-grpc-feature-pack",
   "scm-url" : "https://github.com/wildfly-extras/wildfly-grpc-feature-pack",
@@ -46,6 +46,12 @@
     }, {
       "name" : "org.wildfly.rule.add-on-depends-on",
       "value" : "none"
+    }, {
+      "name" : "org.wildfly.category",
+      "value" : "RPC (Remote Procdeure Call)"
+    }, {
+      "name" : "org.wildfly.description",
+      "value" : "This layer can be used to deploy gRPC services in the application server."
     }, {
       "name" : "org.wildfly.rule.add-on-description",
       "value" : "Support for gRPC."
