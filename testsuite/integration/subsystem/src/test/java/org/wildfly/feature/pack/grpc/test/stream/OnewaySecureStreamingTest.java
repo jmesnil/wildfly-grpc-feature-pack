@@ -4,13 +4,8 @@
  */
 package org.wildfly.feature.pack.grpc.test.stream;
 
-import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.KeyStore;
-
-import javax.net.ssl.TrustManagerFactory;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -46,14 +41,9 @@ public class OnewaySecureStreamingTest extends StreamingTestParent {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
-        KeyStore ts = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
-            ts.load(in, "secret".toCharArray());
-        }
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(ts);
-        ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(tmf.getTrustManagers()).build();
+        final var sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
+        ChannelCredentials creds = TlsChannelCredentials.newBuilder()
+                .trustManager(Files.newInputStream(sslDir.resolve("ca.pem"))).build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();
         stub = ChatServiceGrpc.newStub(channel);
     }

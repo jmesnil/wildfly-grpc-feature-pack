@@ -6,12 +6,10 @@ package org.wildfly.feature.pack.grpc.test.stream;
 
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.TrustManagerFactory;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -47,13 +45,7 @@ public class TwowaySecureStreamingTest extends StreamingTestParent {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
-        KeyStore ts = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
-            ts.load(in, "secret".toCharArray());
-        }
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(ts);
+        final var sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
         KeyStore ks = KeyStore.getInstance("PKCS12");
         try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
             ks.load(in, "secret".toCharArray());
@@ -61,7 +53,7 @@ public class TwowaySecureStreamingTest extends StreamingTestParent {
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, "secret".toCharArray());
         ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                .trustManager(tmf.getTrustManagers())
+                .trustManager(Files.newInputStream(sslDir.resolve("ca.pem")))
                 .keyManager(kmf.getKeyManagers())
                 .build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();

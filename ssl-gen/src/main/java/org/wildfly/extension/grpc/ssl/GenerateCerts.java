@@ -17,10 +17,12 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPrivateCrtKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
+import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -36,6 +38,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.util.io.pem.PemObject;
 
 /**
  * Generates all TLS certificates and PKCS12 keystores needed by the examples and integration tests.
@@ -101,7 +104,7 @@ public class GenerateCerts {
                 "client", clientKey.getPrivate(), new X509Certificate[] { clientCert, caCert });
         writeP12TrustStore(outDir.resolve("client.truststore.p12"), "ca", caCert);
         writePem(outDir.resolve("client.keystore.pem"), clientCert);
-        writePem(outDir.resolve("client.key.pem"), clientKey.getPrivate());
+        writePrivateKeyPkcs1Pem(outDir.resolve("client.key.pem"), clientKey.getPrivate());
 
         System.out.println("Done.");
     }
@@ -173,6 +176,29 @@ public class GenerateCerts {
         ks.setCertificateEntry(alias, cert);
         try (FileOutputStream fos = new FileOutputStream(path.toFile())) {
             ks.store(fos, PASSWORD);
+        }
+        System.out.println("  " + path.getFileName());
+    }
+
+    /**
+     * Writes a private key in PKCS#1 RSA format ("BEGIN RSA PRIVATE KEY"), which is required
+     * by Netty's PEM reader used by gRPC's TlsChannelCredentials.keyManager(certChain, key).
+     * Builds the RSA PKCS#1 structure directly from the CRT parameters to ensure correct encoding.
+     */
+    private static void writePrivateKeyPkcs1Pem(Path path, PrivateKey key) throws IOException {
+        final RSAPrivateCrtKey crt = (RSAPrivateCrtKey) key;
+        final RSAPrivateKey pkcs1 = new RSAPrivateKey(
+                crt.getModulus(),
+                crt.getPublicExponent(),
+                crt.getPrivateExponent(),
+                crt.getPrimeP(),
+                crt.getPrimeQ(),
+                crt.getPrimeExponentP(),
+                crt.getPrimeExponentQ(),
+                crt.getCrtCoefficient());
+        try (JcaPEMWriter writer = new JcaPEMWriter(
+                new OutputStreamWriter(new FileOutputStream(path.toFile())))) {
+            writer.writeObject(new PemObject("RSA PRIVATE KEY", pkcs1.getEncoded()));
         }
         System.out.println("  " + path.getFileName());
     }

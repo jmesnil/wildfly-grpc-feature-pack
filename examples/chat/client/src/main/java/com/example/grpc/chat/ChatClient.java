@@ -11,7 +11,6 @@ import java.nio.file.Paths;
 import java.security.KeyStore;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.TrustManagerFactory;
 
 import org.wildfly.extension.grpc.example.chat.ChatMessage;
 import org.wildfly.extension.grpc.example.chat.ChatMessageFromServer;
@@ -128,12 +127,12 @@ public class ChatClient extends Application {
                 channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
             } else if ("oneway".equals(ssl)) {
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                        .trustManager(loadTrustManagers(sslDir()))
+                        .trustManager(caPem(sslDir()))
                         .build();
                 channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
             } else if ("twoway".equals(ssl)) {
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                        .trustManager(loadTrustManagers(sslDir()))
+                        .trustManager(caPem(sslDir()))
                         .keyManager(loadKeyManagers(sslDir()))
                         .build();
                 channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
@@ -150,14 +149,8 @@ public class ChatClient extends Application {
                 Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs").toString()));
     }
 
-    private static javax.net.ssl.TrustManager[] loadTrustManagers(Path sslDir) throws Exception {
-        KeyStore ts = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
-            ts.load(in, "secret".toCharArray());
-        }
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(ts);
-        return tmf.getTrustManagers();
+    private static InputStream caPem(Path sslDir) throws Exception {
+        return Files.newInputStream(sslDir.resolve("ca.pem"));
     }
 
     private static javax.net.ssl.KeyManager[] loadKeyManagers(Path sslDir) throws Exception {

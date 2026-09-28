@@ -14,7 +14,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.TrustManagerFactory;
 
 import io.grpc.Channel;
 import io.grpc.ChannelCredentials;
@@ -93,12 +92,12 @@ public class GreeterClient {
                     .usePlaintext().build();
         } else if ("oneway".equals(ssl)) {
             ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                    .trustManager(loadTrustManagers(sslDir()))
+                    .trustManager(caPem(sslDir()))
                     .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
         } else if ("twoway".equals(ssl)) {
             ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                    .trustManager(loadTrustManagers(sslDir()))
+                    .trustManager(caPem(sslDir()))
                     .keyManager(loadKeyManagers(sslDir()))
                     .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
@@ -122,14 +121,8 @@ public class GreeterClient {
                 Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs").toString()));
     }
 
-    private static javax.net.ssl.TrustManager[] loadTrustManagers(Path sslDir) throws Exception {
-        KeyStore ts = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
-            ts.load(in, "secret".toCharArray());
-        }
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(ts);
-        return tmf.getTrustManagers();
+    private static InputStream caPem(Path sslDir) throws Exception {
+        return Files.newInputStream(sslDir.resolve("ca.pem"));
     }
 
     private static javax.net.ssl.KeyManager[] loadKeyManagers(Path sslDir) throws Exception {
@@ -141,4 +134,5 @@ public class GreeterClient {
         kmf.init(ks, "secret".toCharArray());
         return kmf.getKeyManagers();
     }
+
 }
