@@ -15,19 +15,12 @@ import javax.net.ssl.TrustManagerFactory;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
-import org.jboss.as.arquillian.api.ServerSetup;
-import org.jboss.as.arquillian.container.ManagementClient;
-import org.jboss.as.arquillian.setup.SnapshotServerSetupTask;
-import org.jboss.as.controller.client.helpers.Operations;
-import org.jboss.as.controller.client.helpers.Operations.CompositeOperationBuilder;
-import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.wildfly.extension.grpc.example.chat.ChatServiceGrpc;
-import org.wildfly.feature.pack.grpc.test.utility.ServerReload;
 
 import chatmessages.ChatMessage;
 import io.grpc.ChannelCredentials;
@@ -36,77 +29,12 @@ import io.grpc.TlsChannelCredentials;
 
 /**
  * Executes {@link StreamingTestParent#streamingTest() StreamingTestParent.streamingTest()}
- * over a connection configured with a keystore on the server side and a truststore on the client side.
+ * over a one-way TLS connection. The server is pre-configured with TLS via the provisioning
+ * CLI script; no server setup task needed.
  */
 @RunWith(Arquillian.class)
-@ServerSetup(OnewaySecureStreamingTest.SslServerSetupTask.class)
 @RunAsClient
 public class OnewaySecureStreamingTest extends StreamingTestParent {
-
-    public static class SslServerSetupTask extends SnapshotServerSetupTask {
-
-        @Override
-        protected void doSetup(final ManagementClient client, final String containerId) throws Exception {
-            secureServer(client);
-        }
-    }
-
-    protected static void secureServer(final ManagementClient client) throws Exception {
-        final CompositeOperationBuilder builder = CompositeOperationBuilder.create();
-
-        // /subsystem=elytron/key-store=grpc-key-store:add(credential-reference={clear-text="secret"}, type=JKS,
-        // path="server.keystore.jks", relative-to="jboss.server.config.dir", required=false)
-        ModelNode address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-key-store");
-        ModelNode op = Operations.createAddOperation(address);
-        final ModelNode credentialRef = new ModelNode();
-        credentialRef.get("clear-text").set("secret");
-        op.get("credential-reference").set(credentialRef);
-        op.get("type").set("PKCS12");
-        op.get("path").set(System.getProperty("grpc.ssl.dir") + "/server.keystore.p12");
-        // op.get("relative-to").set("jboss.server.config.dir");
-        op.get("required").set(false);
-        builder.addStep(op);
-
-        // /subsystem=elytron/key-manager=grpc-key-manager:add(key-store=grpc-key-store,
-        // credential-reference={clear-text="secret"})
-        address = Operations.createAddress("subsystem", "elytron", "key-manager", "grpc-key-manager");
-        op = Operations.createAddOperation(address);
-        op.get("key-store").set("grpc-key-store");
-        op.get("credential-reference").set(credentialRef);
-        builder.addStep(op);
-
-        // /subsystem=elytron/server-ssl-context=grpc-ssl-context:add(cipher-suite-filter=DEFAULT, protocols=["TLSv1.2"],
-        // want-client-auth="false", need-client-auth="true", authentication-optional="false",
-        // use-cipher-suites-order="false", key-manager="grpc-key-manager",
-        // trust-manager="grpc-key-store-trust-manager")
-        address = Operations.createAddress("subsystem", "elytron", "server-ssl-context", "grpc-ssl-context");
-        op = Operations.createAddOperation(address);
-        op.get("cipher-suite-filter").set("DEFAULT");
-        final ModelNode protocols = new ModelNode().setEmptyList();
-        protocols.add("TLSv1.2");
-        op.get("protocols").set(protocols);
-        op.get("want-client-auth").set(false);
-        op.get("need-client-auth").set(false);
-        op.get("authentication-optional").set(false);
-        op.get("use-cipher-suites-order").set(false);
-        op.get("key-manager").set("grpc-key-manager");
-        builder.addStep(op);
-
-        // /subsystem=undertow/server=default-server/https-listener=https:add(socket-binding=https,
-        // ssl-context="grpc-ssl-context", enable-http2=true)
-        address = Operations.createAddress("subsystem", "undertow", "server", "default-server", "https-listener", "https");
-        op = Operations.createAddOperation(address);
-        op.get("socket-binding").set("https");
-        op.get("ssl-context").set("grpc-ssl-context");
-        op.get("enable-http2").set(true);
-        builder.addStep(op);
-
-        final var result = client.getControllerClient().execute(builder.build());
-        if (!Operations.isSuccessfulOutcome(result)) {
-            throw new RuntimeException("Failed to configure SSL context: " + Operations.getFailureDescription(result));
-        }
-        ServerReload.reloadIfRequired(client.getControllerClient());
-    }
 
     @Deployment
     public static Archive<?> createTestArchive() {
@@ -119,12 +47,12 @@ public class OnewaySecureStreamingTest extends StreamingTestParent {
     @BeforeClass
     public static void beforeClass() throws Exception {
         final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
-        KeyStore tsk = KeyStore.getInstance("PKCS12");
+        KeyStore ts = KeyStore.getInstance("PKCS12");
         try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
-            tsk.load(in, "secret".toCharArray());
+            ts.load(in, "secret".toCharArray());
         }
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(tsk);
+        tmf.init(ts);
         ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(tmf.getTrustManagers()).build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();
         stub = ChatServiceGrpc.newStub(channel);

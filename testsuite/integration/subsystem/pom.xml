@@ -111,6 +111,32 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-keystores</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/server-content/standalone/configuration</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${ssl.dir}</directory>
+                                    <includes>
+                                        <include>server.keystore.p12</include>
+                                        <include>server.truststore.p12</include>
+                                    </includes>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.wildfly.plugins</groupId>
                 <artifactId>wildfly-maven-plugin</artifactId>
                 <configuration>
@@ -145,9 +171,22 @@
                     <execution>
                         <id>server-provisioning</id>
                         <goals>
-                            <goal>provision</goal>
+                            <goal>package</goal>
                         </goals>
                         <phase>compile</phase>
+                        <configuration>
+                            <stability>preview</stability>
+                            <extra-server-content-dirs>
+                                <extra-content-dir>${project.build.directory}/server-content</extra-content-dir>
+                            </extra-server-content-dirs>
+                            <packaging-scripts>
+                                <execution>
+                                    <scripts>
+                                        <script>${ssl.cli}</script>
+                                    </scripts>
+                                </execution>
+                            </packaging-scripts>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
