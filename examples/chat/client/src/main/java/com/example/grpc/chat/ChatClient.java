@@ -95,37 +95,42 @@ public class ChatClient extends Application {
     }
 
     private static void setup(String[] args) {
-        String target = "localhost:9555";
+        // Default targets: 8080 for plaintext (h2c), 8443 for TLS
+        // Use 127.0.0.1 for TLS to avoid IPv6 resolution issues on macOS
+        String target = "localhost:8080";
+        String tlsTarget = "127.0.0.1:8443";
         String ssl = "none";
 
         // Allow passing in the user and target strings as command line arguments
         if (args.length > 0) {
             if ("--help".equals(args[0])) {
-                System.err.println("Usage: [ssl]");
+                System.err.println("Usage: [ssl [target]]");
                 System.err.println("");
-                System.err.println("  ssl     none, oneway, or twoway");
+                System.err.println("  ssl     none (port 8080), oneway (port 8443), or twoway (port 8443)");
+                System.err.println("  target  The server to connect to. Defaults to " + target + " or " + tlsTarget);
                 System.exit(1);
             }
             ssl = args[0];
         }
+        if (args.length > 1) {
+            target = args[1];
+            tlsTarget = args[1];
+        }
         try {
             ClassLoader classLoader = ChatClient.class.getClassLoader();
             if ("none".equals(ssl)) {
-                channel = ManagedChannelBuilder.forTarget(target)
-                        // Channels are secure by default (via SSL/TLS). For the example we disable TLS to avoid
-                        // needing certificates.
-                        .usePlaintext().build();
+                channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
             } else if ("oneway".equals(ssl)) {
                 InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(trustStore).build();
-                channel = Grpc.newChannelBuilderForAddress("localhost", 9555, creds).build();
+                channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
             } else if ("twoway".equals(ssl)) {
                 InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
                 InputStream keyStore = classLoader.getResourceAsStream("client.keystore.pem");
                 InputStream key = classLoader.getResourceAsStream("client.key.pem");
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(trustStore).keyManager(keyStore, key)
                         .build();
-                channel = Grpc.newChannelBuilderForAddress("localhost", 9555, creds).build();
+                channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
             } else {
                 System.err.println("unrecognized ssl value: " + ssl);
             }
