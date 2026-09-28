@@ -66,6 +66,13 @@
             <artifactId>perfmark-api</artifactId>
         </dependency>
 
+        <!-- CDI API (provided by WildFly at runtime) -->
+        <dependency>
+            <groupId>jakarta.enterprise</groupId>
+            <artifactId>jakarta.enterprise.cdi-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- Undertow / servlet dependencies (provided by WildFly at runtime) -->
         <dependency>
             <groupId>org.wildfly</groupId>

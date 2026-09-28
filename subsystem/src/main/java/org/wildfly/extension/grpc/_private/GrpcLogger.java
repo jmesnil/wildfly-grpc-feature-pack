@@ -36,6 +36,10 @@ public interface GrpcLogger extends BasicLogger {
     @Message(id = 10, value = "Failed to undeploy gRPC server")
     void failedToUndeployGrpcServer(@Cause Throwable cause);
 
+    @LogMessage(level = DEBUG)
+    @Message(id = 11, value = "gRPC service %s has a CDI scope annotation but is not resolvable as a CDI bean; falling back to reflection.")
+    void serviceNotCdiManaged(String serviceName);
+
     @Message(id = 4, value = "Failed to register %s")
     RuntimeException failedToRegister(@Cause Throwable cause, String serviceName);
 

@@ -4,8 +4,11 @@
  */
 package org.wildfly.extension.grpc.example.helloworld;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 import io.grpc.stub.StreamObserver;
 
+@ApplicationScoped
 public class GreeterServiceImpl extends GreeterGrpc.GreeterImplBase {
 
     @Override

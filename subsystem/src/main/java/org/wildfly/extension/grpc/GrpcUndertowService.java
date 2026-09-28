@@ -4,8 +4,6 @@
  */
 package org.wildfly.extension.grpc;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -181,18 +179,10 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
     }
 
     @Override
-    public void addService(final DeploymentUnit deployment, final Class<? extends BindableService> serviceType,
+    public void addService(final DeploymentUnit deployment, final BindableService bindableService,
             final List<ServerInterceptor> interceptors) {
         final String deploymentName = deployment.getName();
-        GrpcLogger.LOGGER.registerService(serviceType.getName(), deploymentName);
-        final BindableService bindableService;
-        try {
-            final Constructor<? extends BindableService> constructor = serviceType.getConstructor();
-            bindableService = constructor.newInstance();
-        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
-                | IllegalAccessException e) {
-            throw GrpcLogger.LOGGER.failedToRegister(e, serviceType.getName(), deploymentName);
-        }
+        GrpcLogger.LOGGER.registerService(bindableService.getClass().getName(), deploymentName);
         final ServerServiceDefinition ssd = ServerInterceptors.intercept(bindableService, interceptors);
         deploymentServices.computeIfAbsent(deploymentName, k -> ConcurrentHashMap.newKeySet()).add(ssd);
         // TODO https://github.com/wildfly-extras/wildfly-grpc-feature-pack/issues/139
