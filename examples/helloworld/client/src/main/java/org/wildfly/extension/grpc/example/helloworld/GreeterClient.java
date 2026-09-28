@@ -6,7 +6,6 @@ package org.wildfly.extension.grpc.example.helloworld;
 
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.util.concurrent.TimeUnit;
@@ -92,13 +91,13 @@ public class GreeterClient {
                     .usePlaintext().build();
         } else if ("oneway".equals(ssl)) {
             ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                    .trustManager(caPem(sslDir()))
+                    .trustManager(openSslResource("ca.pem"))
                     .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
         } else if ("twoway".equals(ssl)) {
             ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                    .trustManager(caPem(sslDir()))
-                    .keyManager(loadKeyManagers(sslDir()))
+                    .trustManager(openSslResource("ca.pem"))
+                    .keyManager(loadKeyManagers())
                     .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
         } else {
@@ -116,18 +115,33 @@ public class GreeterClient {
         }
     }
 
-    private static Path sslDir() {
-        return Paths.get(System.getProperty("grpc.ssl.dir",
-                Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs").toString()));
+    /**
+     * Opens a TLS resource by name. Resolution order:
+     * <ol>
+     * <li>{@code -Dgrpc.ssl.dir=
+     * <dir>
+     * } — reads from the specified directory</li>
+     * <li>Classpath ({@code /ssl/<name>}) — bundled inside the jar when built with Maven</li>
+     * <li>Default generated location ({@code ssl-gen/target/generated-certs/}) relative to the
+     * working directory</li>
+     * </ol>
+     */
+    private static InputStream openSslResource(String name) throws Exception {
+        final String sslProp = System.getProperty("grpc.ssl.dir");
+        if (sslProp != null) {
+            return Files.newInputStream(Paths.get(sslProp, name));
+        }
+        final InputStream bundled = GreeterClient.class.getResourceAsStream("/ssl/" + name);
+        if (bundled != null) {
+            return bundled;
+        }
+        return Files.newInputStream(
+                Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs", name));
     }
 
-    private static InputStream caPem(Path sslDir) throws Exception {
-        return Files.newInputStream(sslDir.resolve("ca.pem"));
-    }
-
-    private static javax.net.ssl.KeyManager[] loadKeyManagers(Path sslDir) throws Exception {
+    private static javax.net.ssl.KeyManager[] loadKeyManagers() throws Exception {
         KeyStore ks = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
+        try (InputStream in = openSslResource("client.keystore.p12")) {
             ks.load(in, "secret".toCharArray());
         }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());

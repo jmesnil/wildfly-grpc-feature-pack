@@ -42,10 +42,20 @@ The `helloworld` client is a simple Java application. From the project root, run
 mvn exec:java -pl examples/helloworld/client -Dexec.args="Bob <ssl>"
 ```
 
+Or build a self-contained executable jar and run it with `java -jar`:
+
+```shell
+mvn package -pl examples/helloworld/client
+java -jar examples/helloworld/client/target/greeter-client.jar Bob <ssl>
+```
+
 where `<ssl>` is:
 - **`none`** — plaintext, connects to port 8080 (h2c)
 - **`oneway`** — TLS, connects to `127.0.0.1:8443`; server authenticates to client
 - **`twoway`** — mutual TLS, connects to `127.0.0.1:8443`; both sides authenticate
+
+The jar bundles the generated TLS certificates so no additional setup is needed for TLS modes.
+Override the certificate location with `-Dgrpc.ssl.dir=<path>` if needed.
 
 ## grpcurl
 
