@@ -31,12 +31,14 @@ import io.grpc.ServerServiceDefinition;
 import io.grpc.servlet.jakarta.GrpcServlet;
 import io.grpc.servlet.jakarta.ServletServerBuilder;
 import io.grpc.util.MutableHandlerRegistry;
+import io.undertow.Handlers;
 import io.undertow.server.HttpHandler;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
 import io.undertow.servlet.api.InstanceHandle;
 import io.undertow.servlet.api.ServletContainer;
+import io.undertow.util.Headers;
 
 /**
  * An MSC service that serves gRPC traffic via WildFly's Undertow HTTP/2 stack.
@@ -127,7 +129,12 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
 
             @Override
             public HttpHandler wrap(final HttpHandler next) {
-                return new GrpcRoutingHandler(servletHandler, next);
+                return Handlers.predicate(
+                        exchange -> {
+                            final String ct = exchange.getRequestHeaders().getFirst(Headers.CONTENT_TYPE);
+                            return ct != null && ct.regionMatches(true, 0, "application/grpc", 0, 16);
+                        },
+                        servletHandler, next);
             }
         };
         resolvedHost = undertowHost.get();
