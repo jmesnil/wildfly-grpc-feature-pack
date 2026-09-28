@@ -5,6 +5,13 @@
 package org.wildfly.feature.pack.grpc.test.stream;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -48,27 +55,23 @@ public class TwowaySecureStreamingTest extends StreamingTestParent {
 
     protected static void secureServer(final ManagementClient client) throws Exception {
         final CompositeOperationBuilder builder = CompositeOperationBuilder.create();
+        final String sslDir = System.getProperty("grpc.ssl.dir");
 
-        // /subsystem=elytron/key-store=grpc-key-store:add(credential-reference={clear-text="secret"}, type=JKS,
-        // path="server.keystore.jks", relative-to="jboss.server.config.dir", required=false)
         ModelNode address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-key-store");
         ModelNode op = Operations.createAddOperation(address);
         final ModelNode credentialRef = new ModelNode();
         credentialRef.get("clear-text").set("secret");
         op.get("credential-reference").set(credentialRef);
-        op.get("type").set("JKS");
-        op.get("path").set("../../../ssl/server.keystore.jks");
-        // op.get("relative-to").set("jboss.server.config.dir");
+        op.get("type").set("PKCS12");
+        op.get("path").set(sslDir + "/server.keystore.p12");
         op.get("required").set(false);
         builder.addStep(op);
 
-        // /subsystem=elytron/key-store=grpc-trust-store:add(credential-reference={clear-text="secret"}, type=JKS,
-        // required=false, path="server.truststore.jks", relative-to="jboss.server.config.dir")
         address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-trust-store");
         op = Operations.createAddOperation(address);
         op.get("credential-reference").set(credentialRef);
-        op.get("type").set("JKS");
-        op.get("path").set("../../../ssl/server.truststore.jks");
+        op.get("type").set("PKCS12");
+        op.get("path").set(sslDir + "/server.truststore.p12");
         // op.get("relative-to").set("jboss.server.config.dir");
         builder.addStep(op);
 
@@ -130,13 +133,22 @@ public class TwowaySecureStreamingTest extends StreamingTestParent {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        ClassLoader classLoader = TwowaySecureStreamingTest.class.getClassLoader();
-        InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
-        InputStream keyStore = classLoader.getResourceAsStream("client.keystore.pem");
-        InputStream key = classLoader.getResourceAsStream("client.key.pem");
+        final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
+        KeyStore ts = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
+            ts.load(in, "secret".toCharArray());
+        }
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(ts);
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
+            ks.load(in, "secret".toCharArray());
+        }
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, "secret".toCharArray());
         ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                .trustManager(trustStore)
-                .keyManager(keyStore, key)
+                .trustManager(tmf.getTrustManagers())
+                .keyManager(kmf.getKeyManagers())
                 .build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();
         stub = ChatServiceGrpc.newStub(channel);

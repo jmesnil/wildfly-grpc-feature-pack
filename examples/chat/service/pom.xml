@@ -92,10 +92,10 @@
                             <outputDirectory>${project.build.directory}/server-content/standalone/configuration</outputDirectory>
                             <resources>
                                 <resource>
-                                    <directory>${root.directory}/ssl</directory>
+                                    <directory>${ssl.dir}</directory>
                                     <includes>
-                                        <include>server.keystore</include>
-                                        <include>server.truststore.jks</include>
+                                        <include>server.keystore.p12</include>
+                                        <include>server.truststore.p12</include>
                                     </includes>
                                     <filtering>false</filtering>
                                 </resource>

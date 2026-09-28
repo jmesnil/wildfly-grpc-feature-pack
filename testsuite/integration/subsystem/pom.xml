@@ -157,6 +157,7 @@
                 <configuration>
                     <systemPropertyVariables combine.children="append">
                         <jboss.install.dir>${jboss.dist}</jboss.install.dir>
+                        <grpc.ssl.dir>${ssl.dir}</grpc.ssl.dir>
                         <server.jvm.args>${server.jvm.args}</server.jvm.args>
                         <jboss.args>${server.jboss.args}</jboss.args>
                     </systemPropertyVariables>

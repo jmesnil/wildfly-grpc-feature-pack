@@ -206,6 +206,17 @@
                 <version>${version.javax.annotation-api}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${version.bouncycastle}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${version.bouncycastle}</version>
+            </dependency>
+
             <!-- External dependencies -->
             <!-- This does not go into the modules so don't worry about exclusions -->
             <dependency>

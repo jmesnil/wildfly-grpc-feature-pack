@@ -55,6 +55,7 @@
 
     <properties>
         <!-- Dependency versions -->
+        <version.bouncycastle>1.85</version.bouncycastle>
         <version.checkstyle.config>1.0.8.Final</version.checkstyle.config>
         <version.com.google.guava.failureaccess>1.0.3</version.com.google.guava.failureaccess>
         <version.grpc>1.84.0</version.grpc>
@@ -77,6 +78,7 @@
         <version.wildfly.core>33.0.1.Final</version.wildfly.core>
         <version.wildfly.tools>1.0.5.Final</version.wildfly.tools>
         <version.wildfly>41.0.1.Final</version.wildfly>
+        <ssl.dir>${session.executionRootDirectory}/ssl-gen/target/generated-certs</ssl.dir>
 
         <!-- Plugin versions -->
         <version.checkstyle.plugin>3.1.1</version.checkstyle.plugin>
@@ -116,6 +118,7 @@
     </properties>
 
     <modules>
+        <module>ssl-gen</module>
         <module>build</module>
         <module>build-config</module>
         <module>code-parent</module>

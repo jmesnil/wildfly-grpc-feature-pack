@@ -5,9 +5,16 @@
 package org.wildfly.extension.grpc.example.helloworld;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.KeyStore;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 import io.grpc.Channel;
 import io.grpc.ChannelCredentials;
@@ -81,19 +88,18 @@ public class GreeterClient {
             tlsTarget = args[2];
         }
 
-        ClassLoader classLoader = GreeterClient.class.getClassLoader();
         if ("none".equals(ssl)) {
             channel = ManagedChannelBuilder.forTarget(target)
                     .usePlaintext().build();
         } else if ("oneway".equals(ssl)) {
-            InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
-            ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(trustStore).build();
+            ChannelCredentials creds = TlsChannelCredentials.newBuilder()
+                    .trustManager(loadTrustManagers(sslDir()))
+                    .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
         } else if ("twoway".equals(ssl)) {
-            InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
-            InputStream keyStore = classLoader.getResourceAsStream("client.keystore.pem");
-            InputStream key = classLoader.getResourceAsStream("client.key.pem");
-            ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(trustStore).keyManager(keyStore, key)
+            ChannelCredentials creds = TlsChannelCredentials.newBuilder()
+                    .trustManager(loadTrustManagers(sslDir()))
+                    .keyManager(loadKeyManagers(sslDir()))
                     .build();
             channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
         } else {
@@ -109,5 +115,30 @@ public class GreeterClient {
             // again leave it running.
             channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
         }
+    }
+
+    private static Path sslDir() {
+        return Paths.get(System.getProperty("grpc.ssl.dir",
+                Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs").toString()));
+    }
+
+    private static javax.net.ssl.TrustManager[] loadTrustManagers(Path sslDir) throws Exception {
+        KeyStore ts = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
+            ts.load(in, "secret".toCharArray());
+        }
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(ts);
+        return tmf.getTrustManagers();
+    }
+
+    private static javax.net.ssl.KeyManager[] loadKeyManagers(Path sslDir) throws Exception {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
+            ks.load(in, "secret".toCharArray());
+        }
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, "secret".toCharArray());
+        return kmf.getKeyManagers();
     }
 }

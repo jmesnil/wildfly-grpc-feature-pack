@@ -5,6 +5,13 @@
 package org.wildfly.feature.pack.grpc.test.helloworld;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -48,48 +55,36 @@ public class TwowaySecureHelloWorldTest extends HelloWorldParent {
 
     protected static void secureServer(final ManagementClient client) throws Exception {
         final CompositeOperationBuilder builder = CompositeOperationBuilder.create();
-
-        // /subsystem=elytron/key-store=grpc-key-store:add(credential-reference={clear-text="secret"}, type=JKS,
-        // path="server.keystore.jks", relative-to="jboss.server.config.dir", required=false)
-        ModelNode address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-key-store");
-        ModelNode op = Operations.createAddOperation(address);
+        final String sslDir = System.getProperty("grpc.ssl.dir");
         final ModelNode credentialRef = new ModelNode();
         credentialRef.get("clear-text").set("secret");
+
+        ModelNode address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-key-store");
+        ModelNode op = Operations.createAddOperation(address);
         op.get("credential-reference").set(credentialRef);
-        op.get("type").set("JKS");
-        op.get("path").set("../../../ssl/server.keystore.jks");
-        // op.get("relative-to").set("jboss.server.config.dir");
+        op.get("type").set("PKCS12");
+        op.get("path").set(sslDir + "/server.keystore.p12");
         op.get("required").set(false);
         builder.addStep(op);
 
-        // /subsystem=elytron/key-store=grpc-trust-store:add(credential-reference={clear-text="secret"}, type=JKS,
-        // required=false, path="server.truststore.jks", relative-to="jboss.server.config.dir")
         address = Operations.createAddress("subsystem", "elytron", "key-store", "grpc-trust-store");
         op = Operations.createAddOperation(address);
         op.get("credential-reference").set(credentialRef);
-        op.get("type").set("JKS");
-        op.get("path").set("../../../ssl/server.truststore.jks");
-        // op.get("relative-to").set("jboss.server.config.dir");
+        op.get("type").set("PKCS12");
+        op.get("path").set(sslDir + "/server.truststore.p12");
         builder.addStep(op);
 
-        // /subsystem=elytron/key-manager=grpc-key-manager:add(key-store=grpc-key-store,
-        // credential-reference={clear-text="secret"})
         address = Operations.createAddress("subsystem", "elytron", "key-manager", "grpc-key-manager");
         op = Operations.createAddOperation(address);
         op.get("key-store").set("grpc-key-store");
         op.get("credential-reference").set(credentialRef);
         builder.addStep(op);
 
-        // /subsystem=elytron/trust-manager=grpc-key-store-trust-manager:add(key-store="grpc-trust-store")
         address = Operations.createAddress("subsystem", "elytron", "trust-manager", "grpc-key-store-trust-manager");
         op = Operations.createAddOperation(address);
         op.get("key-store").set("grpc-trust-store");
         builder.addStep(op);
 
-        // /subsystem=elytron/server-ssl-context=grpc-ssl-context:add(cipher-suite-filter=DEFAULT, protocols=["TLSv1.2"],
-        // want-client-auth="false", need-client-auth="true", authentication-optional="false",
-        // use-cipher-suites-order="false", key-manager="grpc-key-manager",
-        // trust-manager="grpc-key-store-trust-manager")
         address = Operations.createAddress("subsystem", "elytron", "server-ssl-context", "grpc-ssl-context");
         op = Operations.createAddOperation(address);
         op.get("cipher-suite-filter").set("DEFAULT");
@@ -104,8 +99,6 @@ public class TwowaySecureHelloWorldTest extends HelloWorldParent {
         op.get("trust-manager").set("grpc-key-store-trust-manager");
         builder.addStep(op);
 
-        // /subsystem=undertow/server=default-server/https-listener=https:add(socket-binding=https,
-        // ssl-context="grpc-ssl-context", enable-http2=true)
         address = Operations.createAddress("subsystem", "undertow", "server", "default-server", "https-listener", "https");
         op = Operations.createAddOperation(address);
         op.get("socket-binding").set("https");
@@ -132,14 +125,25 @@ public class TwowaySecureHelloWorldTest extends HelloWorldParent {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
+        final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
 
-        ClassLoader classLoader = TwowaySecureHelloWorldTest.class.getClassLoader();
-        InputStream trustStore = classLoader.getResourceAsStream("client.truststore.pem");
-        InputStream keyStore = classLoader.getResourceAsStream("client.keystore.pem");
-        InputStream key = classLoader.getResourceAsStream("client.key.pem");
+        KeyStore ts = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
+            ts.load(in, "secret".toCharArray());
+        }
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(ts);
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
+            ks.load(in, "secret".toCharArray());
+        }
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, "secret".toCharArray());
+
         ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                .trustManager(trustStore)
-                .keyManager(keyStore, key)
+                .trustManager(tmf.getTrustManagers())
+                .keyManager(kmf.getKeyManagers())
                 .build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();
         blockingStub = GreeterGrpc.newBlockingStub(channel);

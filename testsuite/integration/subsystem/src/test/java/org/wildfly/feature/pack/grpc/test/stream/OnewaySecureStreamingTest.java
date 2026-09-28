@@ -5,6 +5,12 @@
 package org.wildfly.feature.pack.grpc.test.stream;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+
+import javax.net.ssl.TrustManagerFactory;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -55,8 +61,8 @@ public class OnewaySecureStreamingTest extends StreamingTestParent {
         final ModelNode credentialRef = new ModelNode();
         credentialRef.get("clear-text").set("secret");
         op.get("credential-reference").set(credentialRef);
-        op.get("type").set("JKS");
-        op.get("path").set("../../../ssl/server.keystore.jks");
+        op.get("type").set("PKCS12");
+        op.get("path").set(System.getProperty("grpc.ssl.dir") + "/server.keystore.p12");
         // op.get("relative-to").set("jboss.server.config.dir");
         op.get("required").set(false);
         builder.addStep(op);
@@ -112,8 +118,14 @@ public class OnewaySecureStreamingTest extends StreamingTestParent {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        InputStream trustStore = OnewaySecureStreamingTest.class.getClassLoader().getResourceAsStream("client.truststore.pem");
-        ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(trustStore).build();
+        final Path sslDir = Paths.get(System.getProperty("grpc.ssl.dir"));
+        KeyStore tsk = KeyStore.getInstance("PKCS12");
+        try (InputStream in = Files.newInputStream(sslDir.resolve("client.truststore.p12"))) {
+            tsk.load(in, "secret".toCharArray());
+        }
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(tsk);
+        ChannelCredentials creds = TlsChannelCredentials.newBuilder().trustManager(tmf.getTrustManagers()).build();
         channel = Grpc.newChannelBuilderForAddress(TARGET_HOST, SECURE_PORT, creds).build();
         stub = ChatServiceGrpc.newStub(channel);
     }
