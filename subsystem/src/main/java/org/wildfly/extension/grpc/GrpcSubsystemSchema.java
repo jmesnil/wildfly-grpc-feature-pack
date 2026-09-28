@@ -17,7 +17,7 @@ import org.jboss.staxmapper.IntVersion;
 
 enum GrpcSubsystemSchema implements PersistentSubsystemSchema<GrpcSubsystemSchema> {
     // 1.0: Netty-based server (removed in servlet rewrite — kept so the parser rejects old
-    //      configs with an "unsupported namespace" error rather than silently misparsing them)
+    // configs with an "unsupported namespace" error rather than silently misparsing them)
     VERSION_1_0_PREVIEW(1, 0, Stability.PREVIEW),
     // 2.0: Undertow/servlet-based server
     VERSION_2_0_PREVIEW(2, 0, Stability.PREVIEW),;
