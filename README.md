@@ -144,17 +144,22 @@ The `chat` example is taken from [gRPC by example](https://github.com/saturnism/
 
 ### Service
 
-To build the `chat` service, provision a WildFly server with the gRPC subsystem and any necessary certificate files,
-and deploy the service, run:
+From the `examples/chat/service` directory, build and provision the server with the gRPC service pre-deployed:
 
-<code>mvn wildfly:run -pl examples/chat/service -Dssl=*SSL*</code>
+```shell
+cd examples/chat/service
+mvn clean package
+```
 
-where *SSL* is either
+Then start WildFly:
 
-* none: plaintext
-* oneway: server identity is verified
-* twoway: both server and client identities are verified
+```shell
+./target/wildfly/bin/standalone.sh --stability=preview
+```
 
+The server is provisioned with both listeners ready:
+- **Port 8080** — HTTP/2 cleartext (h2c), no certificate required
+- **Port 8443** — HTTPS with HTTP/2 via ALPN; the SSL context uses `want-client-auth=true` and `authentication-optional=true` so clients may optionally present a certificate for mutual TLS
 
 ### Client
 

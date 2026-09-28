@@ -27,18 +27,23 @@ public class ChatServiceImpl extends ChatServiceGrpc.ChatServiceImplBase {
                         .setTimestamp(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000)).build();
 
                 for (StreamObserver<ChatMessageFromServer> observer : observers) {
-                    observer.onNext(message);
+                    try {
+                        observer.onNext(message);
+                    } catch (Exception e) {
+                        observers.remove(observer);
+                    }
                 }
             }
 
             @Override
             public void onError(Throwable t) {
-                // do something;
+                observers.remove(responseObserver);
             }
 
             @Override
             public void onCompleted() {
                 observers.remove(responseObserver);
+                responseObserver.onCompleted();
             }
         };
     }
