@@ -118,13 +118,13 @@ public class GenerateCerts {
                 subject,
                 BigInteger.valueOf(new SecureRandom().nextLong() & Long.MAX_VALUE),
                 Date.from(now),
-                Date.from(now.plus(1, ChronoUnit.MONTHS)),
+                Date.from(now.plus(30, ChronoUnit.DAYS)),
                 subject,
                 keyPair.getPublic());
 
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
-            builder.addExtension(Extension.keyUsage, true,
-                    new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+        builder.addExtension(Extension.keyUsage, true,
+                new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
 
         final ContentSigner signer = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM)
                 .setProvider("BC").build(keyPair.getPrivate());

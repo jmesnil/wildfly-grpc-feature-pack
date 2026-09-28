@@ -79,6 +79,7 @@
         <version.wildfly.tools>1.0.5.Final</version.wildfly.tools>
         <version.wildfly>41.0.1.Final</version.wildfly>
         <ssl.dir>${session.executionRootDirectory}/ssl-gen/target/generated-certs</ssl.dir>
+        <ssl.cli>${session.executionRootDirectory}/ssl-gen/configure-elytron-tls.cli</ssl.cli>
 
         <!-- Plugin versions -->
         <version.checkstyle.plugin>3.1.1</version.checkstyle.plugin>

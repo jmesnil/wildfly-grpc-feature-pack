@@ -138,7 +138,7 @@
                     <packaging-scripts>
                         <execution>
                             <scripts>
-                                <script>${root.directory}/ssl/configure-elytron-tls.cli</script>
+                                <script>${ssl.cli}</script>
                             </scripts>
                         </execution>
                     </packaging-scripts>
