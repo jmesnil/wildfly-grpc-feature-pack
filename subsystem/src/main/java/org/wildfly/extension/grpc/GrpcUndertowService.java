@@ -132,7 +132,12 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
                 return Handlers.predicate(
                         exchange -> {
                             final String ct = exchange.getRequestHeaders().getFirst(Headers.CONTENT_TYPE);
-                            return ct != null && ct.regionMatches(true, 0, "application/grpc", 0, 16);
+                            // gRPC content-type is "application/grpc[+<sub-type>]" (RFC-style +subtype separator).
+                            // Accept bare "application/grpc" and any "+"-prefixed sub-type (e.g. +proto, +json).
+                            // This correctly excludes "application/grpc-web" and malformed types.
+                            return ct != null
+                                    && (ct.equalsIgnoreCase("application/grpc")
+                                            || ct.regionMatches(true, 0, "application/grpc+", 0, 17));
                         },
                         servletHandler, next);
             }
