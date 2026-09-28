@@ -60,7 +60,8 @@ class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
             public void execute(final DeploymentProcessorTarget processorTarget) {
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES,
                         DEPENDENCIES_PRIORITY, new GrpcDependencyProcessor());
-                processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.INSTALL,
+                // CDI beans are resolved by GrpcCdiIntegrationService which depends on the BeanManager MSC service.
+                processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.POST_MODULE,
                         DEPLOYMENT_PRIORITY, new GrpcDeploymentProcessor(service));
             }
         }, OperationContext.Stage.RUNTIME);

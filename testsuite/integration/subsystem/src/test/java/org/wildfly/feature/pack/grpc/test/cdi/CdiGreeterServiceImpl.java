@@ -4,7 +4,7 @@
  */
 package org.wildfly.feature.pack.grpc.test.cdi;
 
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
 
 import org.wildfly.feature.pack.grpc.test.helloworld.GreeterGrpc;
@@ -21,7 +21,7 @@ import messages.HelloRequest;
  * <li>CDI injection ({@code @Inject}) is fully functional inside a gRPC service.</li>
  * </ol>
  */
-@ApplicationScoped
+@Dependent
 public class CdiGreeterServiceImpl extends GreeterGrpc.GreeterImplBase {
 
     @Inject

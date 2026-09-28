@@ -28,6 +28,7 @@
         <module name="io.undertow.core" />
         <module name="io.undertow.servlet" />
         <module name="jakarta.servlet.api" />
+        <module name="jakarta.enterprise.api" />
         <module name="io.grpc.servlet.jakarta" />
         <!--
                 Additional module dependencies.
