@@ -204,9 +204,12 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
     @Override
     public void removeDeploymentServices(final DeploymentUnit deployment) {
         final Collection<ServerServiceDefinition> defs = deploymentServices.remove(deployment.getName());
-        if (defs != null) {
+        // registry is null when the gRPC server has already stopped (e.g. during server shutdown).
+        // In that case services are already gone, so there is nothing to remove.
+        final MutableHandlerRegistry r = registry;
+        if (defs != null && r != null) {
             for (ServerServiceDefinition def : defs) {
-                registry.removeService(def);
+                r.removeService(def);
             }
         }
     }
