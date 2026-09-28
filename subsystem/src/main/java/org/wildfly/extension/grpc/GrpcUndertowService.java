@@ -25,10 +25,8 @@ import org.wildfly.extension.undertow.Host;
 import org.wildfly.extension.undertow.UndertowFilter;
 
 import io.grpc.BindableService;
-import io.grpc.InternalServerInterceptors;
-import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
-import io.grpc.ServerMethodDefinition;
+import io.grpc.ServerInterceptors;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.servlet.jakarta.GrpcServlet;
 import io.grpc.servlet.jakarta.ServletServerBuilder;
@@ -61,6 +59,7 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
     private volatile DeploymentManager deploymentManager;
     private ServletContainer servletContainer;
     private volatile UndertowFilter grpcFilter;
+    private volatile Host resolvedHost;
 
     GrpcUndertowService(final Consumer<GrpcUndertowService> serviceConsumer,
             final Supplier<Host> undertowHost,
@@ -87,11 +86,10 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         // Create a standalone servlet container (independent of WildFly's default container)
         // so this deployment doesn't interfere with application deployments.
         servletContainer = Servlets.newContainer();
-        final GrpcServlet servlet = grpcServlet;
         final io.undertow.servlet.api.InstanceFactory<GrpcServlet> factory = () -> new InstanceHandle<GrpcServlet>() {
             @Override
             public GrpcServlet getInstance() {
-                return servlet;
+                return grpcServlet;
             }
 
             @Override
@@ -121,7 +119,6 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         // This sits above Undertow's path router so application/grpc requests are
         // intercepted before any context-path dispatch — including ROOT.war deployments
         // at "/". All other traffic passes through to the existing handler chain unchanged.
-        final HttpHandler servletHandlerRef = servletHandler;
         grpcFilter = new UndertowFilter() {
             @Override
             public int getPriority() {
@@ -130,24 +127,25 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
 
             @Override
             public HttpHandler wrap(final HttpHandler next) {
-                return new GrpcRoutingHandler(servletHandlerRef, next);
+                return new GrpcRoutingHandler(servletHandler, next);
             }
         };
-        final Host host = undertowHost.get();
-        host.addFilter(grpcFilter);
+        resolvedHost = undertowHost.get();
+        resolvedHost.addFilter(grpcFilter);
 
-        GrpcLogger.LOGGER.grpcServingViaUndertow(host.getName());
+        GrpcLogger.LOGGER.grpcServingViaUndertow(resolvedHost.getName());
         serviceConsumer.accept(this);
     }
 
     @Override
     public void stop(final StopContext context) {
         GrpcLogger.LOGGER.grpcStopping();
-        final Host host = undertowHost.get();
+        final Host host = resolvedHost;
         if (host != null && grpcFilter != null) {
             host.removeFilter(grpcFilter);
         }
         grpcFilter = null;
+        resolvedHost = null;
 
         if (deploymentManager != null) {
             try {
@@ -183,8 +181,7 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
                 | IllegalAccessException e) {
             throw GrpcLogger.LOGGER.failedToRegister(e, serviceType.getName(), deploymentName);
         }
-        final ServerServiceDefinition ssd = installInterceptors(bindableService.bindService(), interceptors)
-                .bindService();
+        final ServerServiceDefinition ssd = ServerInterceptors.intercept(bindableService, interceptors);
         deploymentServices.computeIfAbsent(deploymentName, k -> ConcurrentHashMap.newKeySet()).add(ssd);
         // TODO https://github.com/wildfly-extras/wildfly-grpc-feature-pack/issues/139
         // addService() silently overwrites if two deployments register a service with the same name;
@@ -200,28 +197,5 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
                 registry.removeService(def);
             }
         }
-    }
-
-    private static BindableService installInterceptors(final ServerServiceDefinition ssd,
-            final List<ServerInterceptor> interceptors) {
-        final ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(ssd.getServiceDescriptor());
-        for (ServerMethodDefinition<?, ?> smd : ssd.getMethods()) {
-            builder.addMethod(wrapMethod(smd, interceptors));
-        }
-        return new BindableService() {
-            public ServerServiceDefinition bindService() {
-                return builder.build();
-            }
-        };
-    }
-
-    private static <ReqT, RespT> ServerMethodDefinition<?, ?> wrapMethod(
-            final ServerMethodDefinition<ReqT, RespT> method,
-            final List<ServerInterceptor> interceptors) {
-        ServerCallHandler<ReqT, RespT> handler = method.getServerCallHandler();
-        for (ServerInterceptor interceptor : interceptors) {
-            handler = InternalServerInterceptors.interceptCallHandlerCreate(interceptor, handler);
-        }
-        return method.withServerCallHandler(handler);
     }
 }

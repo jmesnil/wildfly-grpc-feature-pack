@@ -22,6 +22,9 @@ import org.wildfly.extension.undertow.Host;
 
 class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
+    private static final int DEPENDENCIES_PRIORITY = 6304;
+    private static final int DEPLOYMENT_PRIORITY = 6305;
+
     static GrpcSubsystemAdd INSTANCE = new GrpcSubsystemAdd();
 
     public GrpcSubsystemAdd() {
@@ -54,11 +57,8 @@ class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
         context.addStep(new AbstractDeploymentChainStep() {
             public void execute(final DeploymentProcessorTarget processorTarget) {
-                int DEPENDENCIES_PRIORITY = 6304;
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES,
                         DEPENDENCIES_PRIORITY, new GrpcDependencyProcessor());
-
-                int DEPLOYMENT_PRIORITY = 6305;
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.POST_MODULE,
                         DEPLOYMENT_PRIORITY, new GrpcDeploymentProcessor(service));
             }

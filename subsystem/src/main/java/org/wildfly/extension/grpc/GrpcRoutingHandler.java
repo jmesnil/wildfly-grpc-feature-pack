@@ -29,7 +29,7 @@ class GrpcRoutingHandler implements HttpHandler {
     @Override
     public void handleRequest(final HttpServerExchange exchange) throws Exception {
         final String contentType = exchange.getRequestHeaders().getFirst(Headers.CONTENT_TYPE);
-        if (contentType != null && contentType.toLowerCase().startsWith("application/grpc")) {
+        if (contentType != null && contentType.regionMatches(true, 0, "application/grpc", 0, 16)) {
             grpcHandler.handleRequest(exchange);
         } else {
             next.handleRequest(exchange);
