@@ -5,9 +5,6 @@
 package com.example.grpc.chat;
 
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.KeyStore;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -127,13 +124,13 @@ public class ChatClient extends Application {
                 channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
             } else if ("oneway".equals(ssl)) {
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                        .trustManager(caPem(sslDir()))
+                        .trustManager(openSslResource("ca.pem"))
                         .build();
                 channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
             } else if ("twoway".equals(ssl)) {
                 ChannelCredentials creds = TlsChannelCredentials.newBuilder()
-                        .trustManager(caPem(sslDir()))
-                        .keyManager(loadKeyManagers(sslDir()))
+                        .trustManager(openSslResource("ca.pem"))
+                        .keyManager(loadKeyManagers())
                         .build();
                 channel = Grpc.newChannelBuilder(tlsTarget, creds).build();
             } else {
@@ -144,18 +141,13 @@ public class ChatClient extends Application {
         }
     }
 
-    private static Path sslDir() {
-        return Paths.get(System.getProperty("grpc.ssl.dir",
-                Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs").toString()));
+    private static InputStream openSslResource(String name) {
+        return ChatClient.class.getResourceAsStream("/ssl/" + name);
     }
 
-    private static InputStream caPem(Path sslDir) throws Exception {
-        return Files.newInputStream(sslDir.resolve("ca.pem"));
-    }
-
-    private static javax.net.ssl.KeyManager[] loadKeyManagers(Path sslDir) throws Exception {
+    private static javax.net.ssl.KeyManager[] loadKeyManagers() throws Exception {
         KeyStore ks = KeyStore.getInstance("PKCS12");
-        try (InputStream in = Files.newInputStream(sslDir.resolve("client.keystore.p12"))) {
+        try (InputStream in = openSslResource("client.keystore.p12")) {
             ks.load(in, "secret".toCharArray());
         }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());

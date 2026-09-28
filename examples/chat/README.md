@@ -36,11 +36,16 @@ The server is provisioned with both listeners ready:
 
 ## Client
 
-The `chat` client is a JavaFX GUI application. From the `examples/chat/client` directory, run:
+The `chat` client is a self-contained executable jar (JavaFX GUI). Build it from the project root:
 
 ```shell
-cd examples/chat/client
-mvn javafx:run -Dexec.args="<ssl>"
+mvn package -pl examples/chat/client
+```
+
+Then run it with `java -jar`:
+
+```shell
+java -jar examples/chat/client/target/chat-client.jar <ssl>
 ```
 
 where `<ssl>` is:
@@ -49,3 +54,5 @@ where `<ssl>` is:
 - **`twoway`** — mutual TLS, connects to `127.0.0.1:8443`; both sides authenticate
 
 To see the chat in action, start multiple client instances — messages sent by one client are broadcast to all connected clients.
+
+The jar bundles the TLS certificates generated during the build — no additional setup needed.
