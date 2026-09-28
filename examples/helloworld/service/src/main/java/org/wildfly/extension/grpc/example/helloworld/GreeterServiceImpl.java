@@ -4,17 +4,20 @@
  */
 package org.wildfly.extension.grpc.example.helloworld;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
 import io.grpc.stub.StreamObserver;
+import jakarta.enterprise.context.Dependent;
+import jakarta.inject.Inject;
 
-@ApplicationScoped
+@Dependent
 public class GreeterServiceImpl extends GreeterGrpc.GreeterImplBase {
+
+    @Inject
+    HelloService service;
 
     @Override
     public void sayHello(HelloRequest request, StreamObserver<HelloReply> responseObserver) {
         String name = request.getName();
-        String message = "Hello " + name;
+        String message = service.hello(name);
         responseObserver.onNext(HelloReply.newBuilder().setMessage(message).build());
         responseObserver.onCompleted();
     }
