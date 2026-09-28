@@ -6,8 +6,6 @@ package org.wildfly.extension.grpc;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +59,7 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
     private volatile MutableHandlerRegistry registry;
     private volatile GrpcServlet grpcServlet;
     private volatile DeploymentManager deploymentManager;
-    private volatile ServletContainer servletContainer;
+    private ServletContainer servletContainer;
     private volatile UndertowFilter grpcFilter;
 
     GrpcUndertowService(final Consumer<GrpcUndertowService> serviceConsumer,
@@ -178,24 +176,12 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         final String deploymentName = deployment.getName();
         GrpcLogger.LOGGER.registerService(serviceType.getName(), deploymentName);
         final BindableService bindableService;
-        if (System.getSecurityManager() == null) {
-            try {
-                final Constructor<? extends BindableService> constructor = serviceType.getConstructor();
-                bindableService = constructor.newInstance();
-            } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
-                    | IllegalAccessException e) {
-                throw GrpcLogger.LOGGER.failedToRegister(e, serviceType.getName(), deploymentName);
-            }
-        } else {
-            bindableService = AccessController.doPrivileged((PrivilegedAction<BindableService>) () -> {
-                try {
-                    final Constructor<? extends BindableService> constructor = serviceType.getConstructor();
-                    return constructor.newInstance();
-                } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
-                        | IllegalAccessException e) {
-                    throw GrpcLogger.LOGGER.failedToRegister(e, serviceType.getName(), deploymentName);
-                }
-            });
+        try {
+            final Constructor<? extends BindableService> constructor = serviceType.getConstructor();
+            bindableService = constructor.newInstance();
+        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
+                | IllegalAccessException e) {
+            throw GrpcLogger.LOGGER.failedToRegister(e, serviceType.getName(), deploymentName);
         }
         final ServerServiceDefinition ssd = installInterceptors(bindableService.bindService(), interceptors)
                 .bindService();
