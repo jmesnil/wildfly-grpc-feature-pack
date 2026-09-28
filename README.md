@@ -144,17 +144,17 @@ The `chat` example is taken from [gRPC by example](https://github.com/saturnism/
 
 ### Service
 
-From the project root, build, provision, and start the server in one step:
 
-```shell
-mvn wildfly:run -pl examples/chat/service -Dssl=none
-```
-
-Or provision separately and start manually:
+From the `examples/chat/service` directory, build and provision the server with the gRPC service pre-deployed:
 
 ```shell
 cd examples/chat/service
 mvn clean package
+```
+
+Then start WildFly:
+
+```shell
 ./target/wildfly/bin/standalone.sh --stability=preview
 ```
 
@@ -167,10 +167,11 @@ The server is provisioned with both listeners ready:
 The `chat` client is a JavaFX GUI application. From the project root, run:
 
 ```shell
-mvn javafx:run -pl examples/chat/client -Dexec.args="none"
+cd examples/chat/client
+mvn javafx:run -Dexec.args="<ssl>"
 ```
 
-where the argument is the SSL mode:
+where `<ssl>` can be:
 - **`none`** — plaintext, connects to port 8080 (h2c)
 - **`oneway`** — TLS, connects to `127.0.0.1:8443`; server authenticates to client
 - **`twoway`** — mutual TLS, connects to `127.0.0.1:8443`; both sides authenticate
