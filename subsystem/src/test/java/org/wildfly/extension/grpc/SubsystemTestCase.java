@@ -33,7 +33,7 @@ public class SubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Override
     protected String getSubsystemXsdPath() {
-        return "schema/wildfly-grpc_preview_1_0.xsd";
+        return "schema/wildfly-grpc_preview_2_0.xsd";
     }
 
     protected AdditionalInitialization createAdditionalInitialization() {

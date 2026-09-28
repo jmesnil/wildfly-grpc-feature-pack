@@ -16,9 +16,13 @@ import org.jboss.as.version.Stability;
 import org.jboss.staxmapper.IntVersion;
 
 enum GrpcSubsystemSchema implements PersistentSubsystemSchema<GrpcSubsystemSchema> {
-    VERSION_1_0_PREVIEW(1, 0, Stability.PREVIEW),;
+    // 1.0: Netty-based server (removed in servlet rewrite — kept so the parser rejects old
+    //      configs with an "unsupported namespace" error rather than silently misparsing them)
+    VERSION_1_0_PREVIEW(1, 0, Stability.PREVIEW),
+    // 2.0: Undertow/servlet-based server
+    VERSION_2_0_PREVIEW(2, 0, Stability.PREVIEW),;
 
-    static final GrpcSubsystemSchema CURRENT = VERSION_1_0_PREVIEW;
+    static final GrpcSubsystemSchema CURRENT = VERSION_2_0_PREVIEW;
 
     private final VersionedNamespace<IntVersion, GrpcSubsystemSchema> namespace;
 
@@ -33,6 +37,13 @@ enum GrpcSubsystemSchema implements PersistentSubsystemSchema<GrpcSubsystemSchem
 
     @Override
     public PersistentResourceXMLDescription getXMLDescription() {
+        if (this == VERSION_1_0_PREVIEW) {
+            // Netty-based schema: no attributes are valid in the new model.
+            // Returning an empty description causes the parser to reject unknown attributes,
+            // surfacing a clear error rather than silently dropping Netty-only configuration.
+            // TODO - How can this avoid this deprecated variant?
+            return builder(SUBSYSTEM_PATH, namespace).build();
+        }
         // TODO - How can this avoid this deprecated variant?
         return builder(SUBSYSTEM_PATH, namespace)
                 .addAttributes(GrpcSubsystemDefinition.GRPC_MAX_INBOUND_MESSAGE_SIZE,
