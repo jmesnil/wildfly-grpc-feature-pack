@@ -10,9 +10,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
-import jakarta.enterprise.inject.UnsatisfiedResolutionException;
-import jakarta.enterprise.inject.spi.CDI;
+import jakarta.enterprise.inject.spi.BeanManager;
 
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.server.deployment.Attachments;
@@ -25,6 +25,8 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.modules.Module;
+import org.jboss.msc.service.ServiceBuilder;
+import org.jboss.msc.service.ServiceName;
 import org.wildfly.extension.grpc.Constants;
 import org.wildfly.extension.grpc.GrpcExtension;
 import org.wildfly.extension.grpc.InterceptorQueue;
@@ -39,7 +41,7 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
     private static final DotName BINDABLE_CLASS = DotName.createSimple(BindableService.class.getName());
     private static final DotName SERVER_INTERCEPTOR_CLASS = DotName.createSimple(ServerInterceptor.class.getName());
 
-    // CDI scope annotations — presence on a class means it is CDI-managed
+    // CDI scope annotations — presence means the service should be obtained from the CDI container
     private static final Set<DotName> CDI_SCOPE_ANNOTATIONS = Set.of(
             DotName.createSimple("jakarta.enterprise.context.ApplicationScoped"),
             DotName.createSimple("jakarta.enterprise.context.Dependent"),
@@ -68,16 +70,37 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
         final List<ServerInterceptor> interceptors = getInterceptors(
                 index.getAllKnownImplementors(SERVER_INTERCEPTOR_CLASS), classLoader);
 
+        final List<Class<? extends BindableService>> cdiServiceClasses = new ArrayList<>();
+
         for (ClassInfo classInfo : leaves) {
             try {
                 final Class<? extends BindableService> serviceClass = classLoader
                         .loadClass(classInfo.name().toString())
                         .asSubclass(BindableService.class);
-                final BindableService instance = instantiate(serviceClass, classInfo);
-                registry.addService(deploymentUnit, instance, interceptors);
+                if (isCdiManaged(classInfo)) {
+                    cdiServiceClasses.add(serviceClass);
+                } else {
+                    final BindableService instance = reflect(serviceClass);
+                    registry.addService(deploymentUnit, instance, interceptors);
+                }
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        if (!cdiServiceClasses.isEmpty()) {
+            // Install an MSC service that depends on the deployment's Weld services.
+            // BeanManagerService starts when WeldBootstrapService starts (container init begins),
+            // but beans are only fully registered after WeldStartService starts (which fires
+            // AfterDeploymentValidation). We require both to guarantee all beans are available.
+            final ServiceName beanManagerName = deploymentUnit.getServiceName().append("beanmanager");
+            final ServiceName weldStartName = deploymentUnit.getServiceName().append("WeldStartService");
+            final ServiceBuilder<?> sb = phaseContext.getServiceTarget().addService();
+            final Supplier<BeanManager> bmSupplier = sb.requires(beanManagerName);
+            sb.requires(weldStartName);
+            sb.setInstance(new GrpcCdiIntegrationService(bmSupplier, deploymentUnit,
+                    cdiServiceClasses, interceptors, registry));
+            sb.install();
         }
     }
 
@@ -86,15 +109,7 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
         registry.removeDeploymentServices(context);
     }
 
-    private BindableService instantiate(final Class<? extends BindableService> serviceClass,
-            final ClassInfo classInfo) {
-        if (isCdiManaged(classInfo)) {
-            try {
-                return CDI.current().select(serviceClass).get();
-            } catch (UnsatisfiedResolutionException e) {
-                GrpcLogger.LOGGER.serviceNotCdiManaged(serviceClass.getName());
-            }
-        }
+    private BindableService reflect(final Class<? extends BindableService> serviceClass) {
         try {
             final Constructor<? extends BindableService> constructor = serviceClass.getConstructor();
             return constructor.newInstance();
