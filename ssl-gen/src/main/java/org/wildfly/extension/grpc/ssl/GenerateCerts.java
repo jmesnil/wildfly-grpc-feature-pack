@@ -72,7 +72,7 @@ public class GenerateCerts {
         // --- CA ---
         final KeyPair caKey = generateKeyPair();
         final X509Certificate caCert = selfSignedCert(caKey,
-                new X500Name("CN=grpc-test-ca,O=WildFly,C=US"), true);
+                new X500Name("CN=grpc-test-ca,O=WildFly,C=US"));
 
         writePem(outDir.resolve("ca.pem"), caCert);
 
@@ -112,22 +112,19 @@ public class GenerateCerts {
         return kpg.generateKeyPair();
     }
 
-    private static X509Certificate selfSignedCert(KeyPair keyPair, X500Name subject,
-            boolean isCA) throws Exception {
+    private static X509Certificate selfSignedCert(KeyPair keyPair, X500Name subject) throws Exception {
         final Instant now = Instant.now();
         final X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 subject,
                 BigInteger.valueOf(new SecureRandom().nextLong() & Long.MAX_VALUE),
                 Date.from(now),
-                Date.from(now.plus(3650, ChronoUnit.DAYS)),
+                Date.from(now.plus(1, ChronoUnit.MONTHS)),
                 subject,
                 keyPair.getPublic());
 
-        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCA));
-        if (isCA) {
+        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
             builder.addExtension(Extension.keyUsage, true,
                     new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
-        }
 
         final ContentSigner signer = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM)
                 .setProvider("BC").build(keyPair.getPrivate());
