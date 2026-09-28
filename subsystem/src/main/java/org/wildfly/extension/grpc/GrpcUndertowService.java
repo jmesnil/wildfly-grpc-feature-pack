@@ -114,6 +114,8 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         try {
             servletHandler = deploymentManager.start();
         } catch (ServletException e) {
+            deploymentManager.undeploy();
+            deploymentManager = null;
             throw new StartException(e);
         }
 
