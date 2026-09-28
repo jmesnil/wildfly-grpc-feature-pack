@@ -5,8 +5,6 @@
 package org.wildfly.extension.grpc.example.helloworld;
 
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -115,28 +113,8 @@ public class GreeterClient {
         }
     }
 
-    /**
-     * Opens a TLS resource by name. Resolution order:
-     * <ol>
-     * <li>{@code -Dgrpc.ssl.dir=
-     * <dir>
-     * } — reads from the specified directory</li>
-     * <li>Classpath ({@code /ssl/<name>}) — bundled inside the jar when built with Maven</li>
-     * <li>Default generated location ({@code ssl-gen/target/generated-certs/}) relative to the
-     * working directory</li>
-     * </ol>
-     */
-    private static InputStream openSslResource(String name) throws Exception {
-        final String sslProp = System.getProperty("grpc.ssl.dir");
-        if (sslProp != null) {
-            return Files.newInputStream(Paths.get(sslProp, name));
-        }
-        final InputStream bundled = GreeterClient.class.getResourceAsStream("/ssl/" + name);
-        if (bundled != null) {
-            return bundled;
-        }
-        return Files.newInputStream(
-                Paths.get(System.getProperty("user.dir"), "ssl-gen", "target", "generated-certs", name));
+    private static InputStream openSslResource(String name) {
+        return GreeterClient.class.getResourceAsStream("/ssl/" + name);
     }
 
     private static javax.net.ssl.KeyManager[] loadKeyManagers() throws Exception {

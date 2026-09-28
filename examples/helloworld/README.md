@@ -36,16 +36,15 @@ The server is provisioned with both listeners ready:
 
 ## Client
 
-The `helloworld` client is a simple Java application. From the project root, run:
-
-```shell
-mvn exec:java -pl examples/helloworld/client -Dexec.args="Bob <ssl>"
-```
-
-Or build a self-contained executable jar and run it with `java -jar`:
+The `helloworld` client is a self-contained executable jar. Build it from the project root:
 
 ```shell
 mvn package -pl examples/helloworld/client
+```
+
+Then run it with `java -jar`:
+
+```shell
 java -jar examples/helloworld/client/target/greeter-client.jar Bob <ssl>
 ```
 
@@ -54,8 +53,7 @@ where `<ssl>` is:
 - **`oneway`** — TLS, connects to `127.0.0.1:8443`; server authenticates to client
 - **`twoway`** — mutual TLS, connects to `127.0.0.1:8443`; both sides authenticate
 
-The jar bundles the generated TLS certificates so no additional setup is needed for TLS modes.
-Override the certificate location with `-Dgrpc.ssl.dir=<path>` if needed.
+The jar bundles the TLS certificates generated during the build — no additional setup needed.
 
 ## grpcurl
 
