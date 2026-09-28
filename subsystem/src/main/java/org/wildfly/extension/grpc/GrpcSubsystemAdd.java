@@ -23,6 +23,7 @@ import org.wildfly.extension.undertow.Host;
 class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
     private static final int DEPENDENCIES_PRIORITY = 6304;
+    // Runs in INSTALL (after Weld) so CDI beans are available for service instantiation
     private static final int DEPLOYMENT_PRIORITY = 6305;
 
     static GrpcSubsystemAdd INSTANCE = new GrpcSubsystemAdd();
@@ -59,7 +60,7 @@ class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
             public void execute(final DeploymentProcessorTarget processorTarget) {
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES,
                         DEPENDENCIES_PRIORITY, new GrpcDependencyProcessor());
-                processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.POST_MODULE,
+                processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.INSTALL,
                         DEPLOYMENT_PRIORITY, new GrpcDeploymentProcessor(service));
             }
         }, OperationContext.Stage.RUNTIME);

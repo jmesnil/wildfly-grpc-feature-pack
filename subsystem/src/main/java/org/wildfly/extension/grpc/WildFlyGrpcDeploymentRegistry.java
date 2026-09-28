@@ -21,13 +21,12 @@ public interface WildFlyGrpcDeploymentRegistry {
     /**
      * Adds a {@link BindableService} to the gRPC server.
      *
-     * @param serviceType
-     *                         the service to add
+     * @param service
+     *                         the service instance to add
      * @param interceptors
      *                         {@link ServerInterceptor}s to wrap around the service
      */
-    void addService(DeploymentUnit deployment, Class<? extends BindableService> serviceType,
-            List<ServerInterceptor> interceptors);
+    void addService(DeploymentUnit deployment, BindableService service, List<ServerInterceptor> interceptors);
 
     /**
      * Removes all the associated services from the gRPC server.
