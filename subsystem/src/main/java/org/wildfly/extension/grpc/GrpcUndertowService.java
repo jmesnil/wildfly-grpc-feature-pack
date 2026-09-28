@@ -199,6 +199,9 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         final ServerServiceDefinition ssd = installInterceptors(bindableService.bindService(), interceptors)
                 .bindService();
         deploymentServices.computeIfAbsent(deploymentName, k -> ConcurrentHashMap.newKeySet()).add(ssd);
+        // TODO https://github.com/wildfly-extras/wildfly-grpc-feature-pack/issues/139
+        // addService() silently overwrites if two deployments register a service with the same name;
+        // the displaced entry then can't be removed by removeDeploymentServices(), leaking the registration.
         registry.addService(ssd);
     }
 
