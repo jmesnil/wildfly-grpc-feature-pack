@@ -32,6 +32,10 @@ public interface GrpcLogger extends BasicLogger {
     @Message(id = 3, value = "Failed to stop gRPC server")
     void failedToStopGrpcServer(@Cause Throwable cause);
 
+    @LogMessage(level = ERROR)
+    @Message(id = 10, value = "Failed to undeploy gRPC server")
+    void failedToUndeployGrpcServer(@Cause Throwable cause);
+
     @Message(id = 4, value = "Failed to register %s")
     RuntimeException failedToRegister(@Cause Throwable cause, String serviceName);
 

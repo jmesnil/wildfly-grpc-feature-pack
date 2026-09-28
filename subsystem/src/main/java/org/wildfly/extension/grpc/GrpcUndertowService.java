@@ -154,17 +154,19 @@ class GrpcUndertowService implements Service, WildFlyGrpcDeploymentRegistry {
         if (deploymentManager != null) {
             try {
                 deploymentManager.stop();
-                deploymentManager.undeploy();
             } catch (Exception e) {
                 GrpcLogger.LOGGER.failedToStopGrpcServer(e);
+            }
+            try {
+                deploymentManager.undeploy();
+            } catch (Exception e) {
+                GrpcLogger.LOGGER.failedToUndeployGrpcServer(e);
             }
             deploymentManager = null;
         }
 
-        if (grpcServlet != null) {
-            grpcServlet.destroy();
-            grpcServlet = null;
-        }
+        // grpcServlet.destroy() is called by deploymentManager.stop() via the servlet lifecycle
+        grpcServlet = null;
 
         serviceConsumer.accept(null);
     }
