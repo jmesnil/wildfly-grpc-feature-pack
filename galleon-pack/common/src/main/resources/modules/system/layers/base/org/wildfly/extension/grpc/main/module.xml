@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <!--
 
-     Copyright The WildFly Authors
-     SPDX-License-Identifier: Apache-2.0
+    Copyright The WildFly Authors
+    SPDX-License-Identifier: Apache-2.0
 
 -->
 <module xmlns="urn:jboss:module:1.9" name="org.wildfly.extension.grpc">
@@ -29,6 +29,7 @@
         <module name="io.undertow.servlet" />
         <module name="jakarta.servlet.api" />
         <module name="jakarta.enterprise.api" />
+        <module name="org.jboss.as.weld.common" optional="true" />
         <module name="io.grpc.servlet.jakarta" />
         <!--
                 Additional module dependencies.

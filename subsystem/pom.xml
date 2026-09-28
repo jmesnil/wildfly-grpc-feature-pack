@@ -66,10 +66,15 @@
             <artifactId>perfmark-api</artifactId>
         </dependency>
 
-        <!-- CDI API (provided by WildFly at runtime) -->
+        <!-- CDI / Weld integration (provided by WildFly at runtime) -->
         <dependency>
             <groupId>jakarta.enterprise</groupId>
             <artifactId>jakarta.enterprise.cdi-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-weld-common</artifactId>
             <scope>provided</scope>
         </dependency>
 

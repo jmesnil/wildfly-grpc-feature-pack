@@ -47,7 +47,7 @@ public class GrpcSubsystemDefinition extends PersistentResourceDefinition {
     static final List<AttributeDefinition> ATTRIBUTES = List.of(GRPC_MAX_INBOUND_MESSAGE_SIZE,
             GRPC_MAX_INBOUND_METADATA_SIZE, GRPC_SERVER_NAME, GRPC_VIRTUAL_HOST);
 
-    static RuntimeCapability<Void> SERVER_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.grpc.server", false)
+    public static RuntimeCapability<Void> SERVER_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.grpc.server", false)
             .setServiceType(GrpcUndertowService.class).build();
 
     // This must be initialized last to ensure the other static attributes are created first

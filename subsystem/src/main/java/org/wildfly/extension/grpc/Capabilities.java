@@ -7,4 +7,5 @@ package org.wildfly.extension.grpc;
 public interface Capabilities {
 
     String UNDERTOW_HOST_CAPABILITY = "org.wildfly.undertow.host";
+    String WELD_CAPABILITY = "org.wildfly.weld";
 }

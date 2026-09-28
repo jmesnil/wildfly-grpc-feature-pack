@@ -4,9 +4,10 @@
  */
 package org.wildfly.extension.grpc.example.helloworld;
 
-import io.grpc.stub.StreamObserver;
 import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
+
+import io.grpc.stub.StreamObserver;
 
 @Dependent
 public class GreeterServiceImpl extends GreeterGrpc.GreeterImplBase {

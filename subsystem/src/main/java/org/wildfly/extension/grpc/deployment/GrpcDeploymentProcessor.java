@@ -4,15 +4,10 @@
  */
 package org.wildfly.extension.grpc.deployment;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
-
-import jakarta.enterprise.inject.spi.BeanManager;
 
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.server.deployment.Attachments;
@@ -25,17 +20,20 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.modules.Module;
-import org.jboss.msc.service.ServiceBuilder;
-import org.jboss.msc.service.ServiceName;
 import org.wildfly.extension.grpc.Constants;
 import org.wildfly.extension.grpc.GrpcExtension;
 import org.wildfly.extension.grpc.InterceptorQueue;
 import org.wildfly.extension.grpc.WildFlyGrpcDeploymentRegistry;
-import org.wildfly.extension.grpc._private.GrpcLogger;
 
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptor;
 
+/**
+ * POST_MODULE deployment processor: discovers {@link BindableService} and
+ * {@link ServerInterceptor} implementations via Jandex, detects which services carry CDI
+ * scope annotations, then stores the results in {@link GrpcDeploymentAttachments} for
+ * consumption by {@link GrpcServiceInstallProcessor} in the INSTALL phase.
+ */
 public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
 
     private static final DotName BINDABLE_CLASS = DotName.createSimple(BindableService.class.getName());
@@ -65,12 +63,13 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
 
         final Collection<ClassInfo> serviceClassInfos = index.getAllKnownImplementors(BINDABLE_CLASS);
         final List<ClassInfo> leaves = getLeafClassInfos(serviceClassInfos);
-        processManagement(deploymentUnit, leaves, classLoader);
 
-        final List<ServerInterceptor> interceptors = getInterceptors(
-                index.getAllKnownImplementors(SERVER_INTERCEPTOR_CLASS), classLoader);
+        if (leaves.isEmpty()) {
+            return;
+        }
 
-        final List<Class<? extends BindableService>> cdiServiceClasses = new ArrayList<>();
+        final List<Class<? extends BindableService>> cdiServices = new ArrayList<>();
+        final List<Class<? extends BindableService>> plainServices = new ArrayList<>();
 
         for (ClassInfo classInfo : leaves) {
             try {
@@ -78,45 +77,56 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
                         .loadClass(classInfo.name().toString())
                         .asSubclass(BindableService.class);
                 if (isCdiManaged(classInfo)) {
-                    cdiServiceClasses.add(serviceClass);
+                    cdiServices.add(serviceClass);
                 } else {
-                    final BindableService instance = reflect(serviceClass);
-                    registry.addService(deploymentUnit, instance, interceptors);
+                    plainServices.add(serviceClass);
                 }
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        if (!cdiServiceClasses.isEmpty()) {
-            // Install an MSC service that depends on the deployment's Weld services.
-            // BeanManagerService starts when WeldBootstrapService starts (container init begins),
-            // but beans are only fully registered after WeldStartService starts (which fires
-            // AfterDeploymentValidation). We require both to guarantee all beans are available.
-            final ServiceName beanManagerName = deploymentUnit.getServiceName().append("beanmanager");
-            final ServiceName weldStartName = deploymentUnit.getServiceName().append("WeldStartService");
-            final ServiceBuilder<?> sb = phaseContext.getServiceTarget().addService();
-            final Supplier<BeanManager> bmSupplier = sb.requires(beanManagerName);
-            sb.requires(weldStartName);
-            sb.setInstance(new GrpcCdiIntegrationService(bmSupplier, deploymentUnit,
-                    cdiServiceClasses, interceptors, registry));
-            sb.install();
+        // Collect interceptor class names (loaded at INSTALL time in GrpcCdiIntegrationService)
+        final InterceptorQueue queue = new InterceptorQueue();
+        for (ClassInfo ci : index.getAllKnownImplementors(SERVER_INTERCEPTOR_CLASS)) {
+            try {
+                queue.add(classLoader.loadClass(ci.name().toString()).asSubclass(ServerInterceptor.class));
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        final List<String> interceptorNames = new ArrayList<>();
+        for (Class<? extends ServerInterceptor> c : queue.toList()) {
+            interceptorNames.add(c.getName());
+        }
+
+        deploymentUnit.putAttachment(GrpcDeploymentAttachments.CDI_SERVICE_CLASSES, cdiServices);
+        deploymentUnit.putAttachment(GrpcDeploymentAttachments.PLAIN_SERVICE_CLASSES, plainServices);
+        deploymentUnit.putAttachment(GrpcDeploymentAttachments.INTERCEPTOR_CLASS_NAMES, interceptorNames);
+        deploymentUnit.putAttachment(GrpcDeploymentAttachments.LEAF_CLASS_INFOS, leaves);
+
+        processManagement(deploymentUnit, leaves, classLoader);
+    }
+
+    private void processManagement(final DeploymentUnit deploymentUnit, final List<ClassInfo> grpcServiceClassInfos,
+            final ClassLoader classLoader) {
+        final DeploymentResourceSupport drs = deploymentUnit
+                .getAttachment(Attachments.DEPLOYMENT_RESOURCE_SUPPORT);
+        for (ClassInfo classInfo : grpcServiceClassInfos) {
+            try {
+                final Class<?> clazz = classLoader.loadClass(classInfo.name().toString());
+                final ModelNode serviceModel = drs.getDeploymentSubModel(GrpcExtension.SUBSYSTEM_NAME,
+                        PathElement.pathElement(Constants.GRPC_SERVICE, clazz.getSimpleName()));
+                serviceModel.get(Constants.SERVICE_CLASS).set(clazz.getName());
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
     @Override
     public void undeploy(DeploymentUnit context) {
         registry.removeDeploymentServices(context);
-    }
-
-    private BindableService reflect(final Class<? extends BindableService> serviceClass) {
-        try {
-            final Constructor<? extends BindableService> constructor = serviceClass.getConstructor();
-            return constructor.newInstance();
-        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
-                | IllegalAccessException e) {
-            throw GrpcLogger.LOGGER.failedToRegister(e, serviceClass.getName());
-        }
     }
 
     private boolean isCdiManaged(final ClassInfo classInfo) {
@@ -134,44 +144,5 @@ public class GrpcDeploymentProcessor implements DeploymentUnitProcessor {
             }
         }
         return leaves;
-    }
-
-    private List<ServerInterceptor> getInterceptors(final Collection<ClassInfo> classInfos,
-            final ClassLoader classLoader) {
-        final InterceptorQueue queue = new InterceptorQueue();
-        try {
-            for (ClassInfo ci : classInfos) {
-                queue.add(classLoader.loadClass(ci.name().toString()).asSubclass(ServerInterceptor.class));
-            }
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-        final List<ServerInterceptor> interceptors = new ArrayList<>();
-        for (Class<? extends ServerInterceptor> interceptorType : queue.toList()) {
-            GrpcLogger.LOGGER.registerServerInterceptor(interceptorType.getName());
-            try {
-                interceptors.add(interceptorType.getConstructor().newInstance());
-            } catch (NoSuchMethodException | InvocationTargetException | InstantiationException
-                    | IllegalAccessException e) {
-                throw GrpcLogger.LOGGER.failedToRegister(e, interceptorType.getName());
-            }
-        }
-        return interceptors;
-    }
-
-    private void processManagement(final DeploymentUnit deploymentUnit, final List<ClassInfo> grpcServiceClassInfos,
-            final ClassLoader classLoader) {
-        final DeploymentResourceSupport drs = deploymentUnit
-                .getAttachment(Attachments.DEPLOYMENT_RESOURCE_SUPPORT);
-        for (ClassInfo classInfo : grpcServiceClassInfos) {
-            try {
-                final Class<?> clazz = classLoader.loadClass(classInfo.name().toString());
-                final ModelNode serviceModel = drs.getDeploymentSubModel(GrpcExtension.SUBSYSTEM_NAME,
-                        PathElement.pathElement(Constants.GRPC_SERVICE, clazz.getSimpleName()));
-                serviceModel.get(Constants.SERVICE_CLASS).set(clazz.getName());
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        }
     }
 }

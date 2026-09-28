@@ -4,9 +4,9 @@
  */
 package org.wildfly.extension.grpc.example.helloworld;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
 import static java.lang.String.format;
+
+import jakarta.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
 public class HelloService {

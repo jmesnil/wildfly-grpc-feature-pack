@@ -18,13 +18,16 @@ import org.jboss.as.server.deployment.Phase;
 import org.jboss.dmr.ModelNode;
 import org.wildfly.extension.grpc.deployment.GrpcDependencyProcessor;
 import org.wildfly.extension.grpc.deployment.GrpcDeploymentProcessor;
+import org.wildfly.extension.grpc.deployment.GrpcServiceInstallProcessor;
 import org.wildfly.extension.undertow.Host;
 
 class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
     private static final int DEPENDENCIES_PRIORITY = 6304;
-    // Runs in INSTALL (after Weld) so CDI beans are available for service instantiation
-    private static final int DEPLOYMENT_PRIORITY = 6305;
+    // POST_MODULE: Jandex discovery of BindableService implementors
+    private static final int POST_MODULE_PRIORITY = 6305;
+    // INSTALL: per-deployment MSC service with BeanManager / WeldStartService dependencies
+    private static final int INSTALL_PRIORITY = 6306;
 
     static GrpcSubsystemAdd INSTANCE = new GrpcSubsystemAdd();
 
@@ -60,9 +63,10 @@ class GrpcSubsystemAdd extends AbstractBoottimeAddStepHandler {
             public void execute(final DeploymentProcessorTarget processorTarget) {
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES,
                         DEPENDENCIES_PRIORITY, new GrpcDependencyProcessor());
-                // CDI beans are resolved by GrpcCdiIntegrationService which depends on the BeanManager MSC service.
                 processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.POST_MODULE,
-                        DEPLOYMENT_PRIORITY, new GrpcDeploymentProcessor(service));
+                        POST_MODULE_PRIORITY, new GrpcDeploymentProcessor(service));
+                processorTarget.addDeploymentProcessor(GrpcExtension.SUBSYSTEM_NAME, Phase.INSTALL,
+                        INSTALL_PRIORITY, new GrpcServiceInstallProcessor());
             }
         }, OperationContext.Stage.RUNTIME);
     }
